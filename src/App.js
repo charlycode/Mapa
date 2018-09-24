@@ -7,31 +7,29 @@ import FloatingActionButton from 'material-ui/FloatingActionButton';
 import ContentAdd from 'material-ui/svg-icons/content/add';
 import LoadingPanel from '@boundlessgeo/sdk/components/LoadingPanel';
 import MapPanel from '@boundlessgeo/sdk/components/MapPanel';
-import Globe from '@boundlessgeo/sdk/components/Globe';
+import Header from '@boundlessgeo/sdk/components/Header';
 import HomeButton from '@boundlessgeo/sdk/components/HomeButton';
 import Geolocation from '@boundlessgeo/sdk/components/Geolocation';
-import Header from '@boundlessgeo/sdk/components/Header';
 import Zoom from '@boundlessgeo/sdk/components/Zoom';
 import Rotate from '@boundlessgeo/sdk/components/Rotate';
-import AddLayerModal from '@boundlessgeo/sdk/components/AddLayerModal';
-import LayerList from '@boundlessgeo/sdk/components/LayerList';
 import Measure from '@boundlessgeo/sdk/components/Measure';
 import Navigation from '@boundlessgeo/sdk/components/Navigation';
 import FontIcon from 'material-ui/FontIcon';
 ///// my Components
-import MapaAppBar from './components/MapaAppBar';
 import MapaAddLayersModal from './components/MapaAddLayersModal';
 import MapaLayersControl from './components/MapaLayersControl';
+import MapaPopUp from './components/MapaPopUp';
 ///// my Components
 import injectTapEventPlugin from 'react-tap-event-plugin';
 import {injectIntl, intlShape} from 'react-intl';
+import queryString from 'query-string';
 // Needed for onTouchTap
 // Can go away when react 1.0 release
 // Check this repo:
 // https://github.com/zilverline/react-tap-event-plugin
 injectTapEventPlugin();
 
-var map = new ol.Map({
+const map = new ol.Map({
   layers: [new ol.layer.Group({
       type: 'base-group',
       title: 'Base',
@@ -59,7 +57,8 @@ class App extends Component {
       arelayersOnMap: false,
       showLayersControl: false,
       errorModal: null,
-      layersOnControl: []
+      layersOnControl: [],
+      configLayers: []
     };
   }
 
@@ -74,95 +73,152 @@ class App extends Component {
     this.setState({layerModalOpen: false});
   }
 
-  getLayersClean(layers) {
-    const newLayers = layers
-    layers.forEach((l,i) => {
-      if (!l.getProperties().title) {
-        layers.splice(i,1)
-      }
-    });
-    return newLayers
+  isEmdebed(){
+    let body = document.getElementById('body');
+    let header = document.getElementById('header');
+    let footer = document.getElementById('footer');
+    body.style.margin = "2px";
+    body.removeChild(header);
+    body.removeChild(footer);
+    this.changeShowLayersControl();
   }
 
-  componentDidMount(){
+  cleanConfig(config){
+    let cleanArray = [];
+    let configArray = config.replace(/[\]\[]/g, "").split(',');
+    configArray.forEach((c, i)=>{
+      let idGeo = '';
+      let hex = '';
+      let color = '';
+      let order = i;
+      if (c.includes(':')) {
+        let cx = c.split(':');
+        idGeo = cx[0];
+        hex = '#' + cx[1];
+        if (hex.search(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/g) > -1) {
+          color = hex;
+        }
+      } else {
+        idGeo = c;
+      }
+      cleanArray.push({order, idGeo, color})
+    });
+    this.setState({configLayers: cleanArray});
+  }
+
+  componentWillMount() {
     this.getLayersOnMap();
+    let values = queryString.parse(this.props.location.search);
+    if(values.config){
+      if(values.config.includes("[") && values.config.includes("]")){
+        this.cleanConfig(values.config)
+      } else{
+        console.log('url invalida');
+      }
+    }
+    if(values.embeded) {
+      this.isEmdebed()
+    }
   }
 
   getLayersOnMap() {
-    let layersOnControl = this.getLayersClean(map.getLayers().getArray());
+    let layersOnControl = map.getLayers().getArray();
     this.setState({layersOnControl})
     let layersLength = layersOnControl.length;
-    if (layersLength > 1) {
+    if (layersLength > 2) {
       this.setState({arelayersOnMap: true});
     } else {
       this.setState({arelayersOnMap: false});
       this.setState({showLayersControl: false});
     }
-
   }
 
   thereLayersOnModal() {
-    this.setState({isLoadedModal: true});
+    let layersOnControl = this.state.layersOnControl;
+    let blan = false;
+    let scrollList = document.getElementById('scroll-list');
+    blan = layersOnControl.length > 6 ? false : true;
+    this.setState({isLoadedModal: blan});
+    if (scrollList) {
+      if (layersOnControl.length > 5) {
+        scrollList.style.height = '200px'
+        scrollList.style.overflow ='scroll';
+      } else {
+        scrollList.style.height = 'unset';
+        scrollList.style.overflow ='unset';
+      }
+    }
   }
+
   thereErrorOnModal(error) {
     this.setState({errorModal: error});
   }
+
   thereNoLayersOnModal() {
     this.setState({isLoadedModal: false});
   }
 
-  changeShowLayersControl(){
-    this.setState({ showLayersControl: !this.state.showLayersControl })
+  changeShowLayersControl() {
+    this.setState({
+      showLayersControl: !this.state.showLayersControl
+    })
   }
 
   render() {
-    return (<div>
-      <MapaAddLayersModal mapa={map} isOpen={this.state.layerModalOpen} closeModal={this.closeAddLayerModal.bind(this)} layersOnMap={this.getLayersOnMap.bind(this)} thereIs={this.thereLayersOnModal.bind(this)} thereError={this.thereErrorOnModal.bind(this)} thereNo={this.thereNoLayersOnModal.bind(this)}/> {/* <AddLayerModal map={map} allowCreate={false} allowUpload={false} open={this.state.layerModalOpen} onRequestClose={this.closeAddLayerModal.bind(this)} sources={[{ url: 'https://geo.datos.gob.mx/geoserver/wms', type: 'WMS', title: 'Datos MX QA' }]} /> */}
-      <div>
-        {/* <MapaAppBar mapa={map}/> */}
-        <div className="App">
+    return (
+      <div className="App">
+        <MapaAddLayersModal mapa={map} layersToAdd={this.state.configLayers} isOpen={this.state.layerModalOpen} closeModal={this.closeAddLayerModal.bind(this)} layersOnMap={this.getLayersOnMap.bind(this)} thereIs={this.thereLayersOnModal.bind(this)} thereError={this.thereErrorOnModal.bind(this)} thereNo={this.thereNoLayersOnModal.bind(this)}/>
+        {
+          this.state.errorModal
+            ? <p>{this.state.errorModal.message}</p>
+            : null
+        }
+        <MapaPopUp mapa={map}/>
+        <MapPanel className='mapa-panel' map={map}/>
+        <LoadingPanel map={map}/>
+        <div id='left-control-buttons'>
           {
-            this.state.errorModal
-              ? <p>{this.state.errorModal.message}</p>
+            this.state.isLoadedModal
+              ? <div className='control-button'>
+                  <FloatingActionButton mini={true} onClick={this.openAddLayerModal.bind(this)}><ContentAdd/></FloatingActionButton>
+                </div>
               : null
           }
-          <MapPanel map={map}/>
-          <LoadingPanel map={map}/>
-          <div id='left-control-buttons'>
-            {
-              this.state.isLoadedModal
-                ? <div id='control-button'>
-                    <FloatingActionButton mini={true} onClick={this.openAddLayerModal.bind(this)}><ContentAdd/></FloatingActionButton>
-                  </div>
-                : null
-            }
-            {
-              this.state.arelayersOnMap
-                ? <div id='control-button'>
-                  <FloatingActionButton mini={true} onClick={this.changeShowLayersControl.bind(this)}>
-                      <FontIcon className="material-icons">layers</FontIcon>
-                    </FloatingActionButton>
-                  </div>
-                : null
-            }
-          </div>
           {
-            this.state.showLayersControl
-            ?  <div id='layers-control'><MapaLayersControl mapa={map} layersOnControl={this.state.layersOnControl} layersOnMap={this.getLayersOnMap.bind(this)}/></div>
-            : null
+            this.state.arelayersOnMap
+              ? <div id='layers-control-button' className='control-button'>
+                  <FloatingActionButton mini={true} onClick={this.changeShowLayersControl.bind(this)}>
+                    <FontIcon className="material-icons">layers</FontIcon>
+                  </FloatingActionButton>
+                </div>
+              : null
           }
-          <div id='right-control-buttons'>
-            {/* <div id='control-button'><Globe map={map} /></div> */}
-            <div id='control-button'><Geolocation map={map}/></div>
-            <div id='control-button'><HomeButton map={map}/></div>
-            <div id='control-button'><Zoom map={map}/></div>
-            <div id='control-button'><Rotate map={map}/></div>
-            <div id='control-button'><FloatingActionButton mini={true}><Navigation style={{'left' : -4,'top' : -2}} toggleGroup='navigation' secondary={true}/></FloatingActionButton></div>
-            <div id='control-button'><FloatingActionButton mini={true}><Measure style={{'left' : -4,'top' : -2}} toggleGroup='navigation' map={map}/></FloatingActionButton></div>
+        </div>
+        {
+          this.state.showLayersControl
+            ? <div id='layers-control'><MapaLayersControl mapa={map} checkAddLayer={this.thereLayersOnModal.bind(this)} layersOnControl={this.state.layersOnControl} layersOnMap={this.getLayersOnMap.bind(this)}/></div>
+            : null
+        }
+        <div id='right-control-buttons'>
+          <div className='control-button'><Geolocation map={map}/></div>
+          <div className='control-button'><HomeButton map={map}/></div>
+          <div className='control-button'><Zoom map={map}/></div>
+          <div className='control-button'><Rotate map={map}/></div>
+          <div className='control-button'>
+            <FloatingActionButton mini={true}><Navigation style={{
+          'left' : -4,
+          'top' : -2
+        }} toggleGroup='navigation' secondary={true}/></FloatingActionButton>
+          </div>
+          <div className='control-button'>
+            <FloatingActionButton mini={true}><Measure style={{
+          'left' : -4,
+          'top' : -2
+        }} toggleGroup='navigation' map={map}/></FloatingActionButton>
           </div>
         </div>
       </div>
-    </div>);
+    );
   }
 }
 
