@@ -77,7 +77,7 @@ class MapaPopUp extends Component {
         <div id="mapapopup" className="ol-popup">
           <div id="popup-content">
               <h5>{layer ? layer.title : ''}</h5>
-              <Table style={{hight: 300}}>
+                    <Table style={{ height: 300}}>
                   <TableHeader displaySelectAll={false} adjustForCheckbox={false}>
                     <TableRow>
                         <TableHeaderColumn>Parametro</TableHeaderColumn>
