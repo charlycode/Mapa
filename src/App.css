@@ -37,5 +37,9 @@
 
 body {
   position: relative !important;
-  padding-top: 0px !important;
+  padding-top: 94px !important;
+}
+
+.App {
+  height: calc(100vh - 94px);
 }
