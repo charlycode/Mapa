@@ -1,5 +1,6 @@
 # Stage 1 - the build process
-FROM node:9.6.1 as builder
+FROM node:9.6.1
+RUN apt-get update && apt-get install -y curl nginx
 
 # set working directory
 RUN mkdir /usr/src/app
@@ -17,8 +18,9 @@ COPY . /usr/src/app
 
 RUN yarn build
 
-# Stage 2 - the production environment
-FROM nginx:1.12-alpine
-COPY --from=builder /usr/src/app/build /usr/share/nginx/html
+RUN rm -rf /var/html/html/*
+RUN mkdir /var/www/html/mapa
+RUN mv /usr/src/app/build/index.html /var/www/html/
+RUN cp -R /usr/src/app/build/* /var/www/html/mapa
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
