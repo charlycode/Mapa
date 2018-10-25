@@ -19,8 +19,7 @@ COPY . /usr/src/app
 RUN yarn build
 
 RUN rm -rf /var/html/html/*
-RUN mkdir /var/www/html/mapa
 RUN mv /usr/src/app/build/index.html /var/www/html/
-RUN cp -R /usr/src/app/build/* /var/www/html/mapa
+RUN cp -R /usr/src/app/build/* /var/www/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
